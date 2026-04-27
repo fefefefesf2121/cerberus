@@ -1,4 +1,6 @@
 /target
+*.enc
+*.txt
 **/*.log
 .env
 .DS_Store

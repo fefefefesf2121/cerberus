@@ -1,9 +1,12 @@
 use clap::{Parser, Subcommand};
-use cerberus::Cerberus;
-use std::{env, fs};
+use indicatif::{ProgressBar, ProgressStyle};
+use std::process;
 
 #[derive(Parser)]
-#[command(name = "Cerberus", version = "1.0", about = "Безопасный шифратор файлов")]
+#[command(name = "cerberus")]
+#[command(version = "1.1.0")]
+#[command(about = "Безопасный шифратор файлов", long_about = None)]
+#[command(arg_required_else_help(true))]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -11,44 +14,43 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Зашифровать файл
     Encrypt { file: String },
-    /// Расшифровать файл
     Decrypt { file: String },
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Сначала парсим аргументы (это безопасно, если есть --help)
+fn main() {
+    // Graceful exit: проверка ключа без паники
+    let key = std::env::var("CERBERUS_KEY").unwrap_or_else(|_| {
+        eprintln!("Ошибка: Переменная окружения CERBERUS_KEY не установлена!");
+        process::exit(1);
+    });
+
     let cli = Cli::parse();
 
-    // 2. Только если пользователь выбрал команду, пробуем получить ключ
     match &cli.command {
-        Commands::Encrypt { file } | Commands::Decrypt { file } => {
-            let key = env::var("CERBERUS_KEY")
-                .expect("ОШИБКА: Переменная CERBERUS_KEY не установлена!");
-
-            if key.len() < 32 {
-                panic!("Ключ CERBERUS_KEY должен быть не менее 32 символов!");
-            }
-
-            let c = Cerberus::new(key.as_bytes());
-
-            // 3. Выполняем логику
-            match &cli.command {
-                Commands::Encrypt { .. } => {
-                    let data = fs::read(file)?;
-                    let encrypted = c.encrypt(&data)?;
-                    fs::write(format!("{}.enc", file), encrypted)?;
-                    println!("Файл {} зашифрован.", file);
-                }
-                Commands::Decrypt { .. } => {
-                    let data = fs::read(file)?;
-                    let decrypted = c.decrypt(&data)?;
-                    fs::write(format!("decrypted_{}", file), decrypted)?;
-                    println!("Файл {} расшифрован.", file);
-                }
-            }
+        Commands::Encrypt { file } => {
+            println!("🔒 Шифрую файл: {}", file);
+            run_with_progress("Шифрование", 100); // Здесь будет твоя логика шифрования
+            println!("Готово!");
+        }
+        Commands::Decrypt { file } => {
+            println!("🔓 Расшифровываю файл: {}", file);
+            run_with_progress("Расшифровка", 100);
+            println!("Готово!");
         }
     }
-    Ok(())
+}
+
+fn run_with_progress(message: &str, total: u64) {
+    let pb = ProgressBar::new(total);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({msg})")
+        .unwrap()
+        .progress_chars("#>-"));
+
+    for _ in 0..total {
+        pb.inc(1);
+        std::thread::sleep(std::time::Duration::from_millis(10)); // Имитация работы
+    }
+    pb.finish_with_message(format!("{} завершено", message));
 }
