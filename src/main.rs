@@ -1,56 +1,88 @@
-use clap::{Parser, Subcommand};
-use indicatif::{ProgressBar, ProgressStyle};
-use std::process;
+mod lib;
+mod key_manager;
 
-#[derive(Parser)]
-#[command(name = "cerberus")]
-#[command(version = "1.1.0")]
-#[command(about = "Безопасный шифратор файлов", long_about = None)]
-#[command(arg_required_else_help(true))]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
+use dialoguer::{Select, Input, Confirm};
+use console::style;
+use std::{fs, process};
+use std::path::PathBuf;
+use walkdir::WalkDir;
 
-#[derive(Subcommand)]
-enum Commands {
-    Encrypt { file: String },
-    Decrypt { file: String },
-}
+fn main() -> anyhow::Result<()> {
+    // Получаем ключ из системы
+    let master_key = key_manager::get_or_create_key();
 
-fn main() {
-    // Graceful exit: проверка ключа без паники
-    let key = std::env::var("CERBERUS_KEY").unwrap_or_else(|_| {
-        eprintln!("Ошибка: Переменная окружения CERBERUS_KEY не установлена!");
-        process::exit(1);
-    });
+    loop {
+        println!("\n{}", style("=== Cerberus Security System ===").bold().cyan());
+        let options = vec![
+            "Зашифровать файл", 
+            "Расшифровать файл", 
+            "Удалить все ключи (Uninstall)", 
+            "Выход"
+        ];
+        
+        let selection = Select::new().items(&options).interact()?;
 
-    let cli = Cli::parse();
-
-    match &cli.command {
-        Commands::Encrypt { file } => {
-            println!("🔒 Шифрую файл: {}", file);
-            run_with_progress("Шифрование", 100); // Здесь будет твоя логика шифрования
-            println!("Готово!");
-        }
-        Commands::Decrypt { file } => {
-            println!("🔓 Расшифровываю файл: {}", file);
-            run_with_progress("Расшифровка", 100);
-            println!("Готово!");
+        match selection {
+            0 => handle_file("Encrypt", &master_key)?,
+            1 => handle_file("Decrypt", &master_key)?,
+            2 => uninstall()?,
+            _ => break,
         }
     }
+    Ok(())
 }
 
-fn run_with_progress(message: &str, total: u64) {
-    let pb = ProgressBar::new(total);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({msg})")
-        .unwrap()
-        .progress_chars("#>-"));
+fn handle_file(action: &str, key: &[u8]) -> anyhow::Result<()> {
+    // Указываем тип String для Input, чтобы Rust не ругался
+    let input: String = Input::<String>::new()
+        .with_prompt("Введите имя файла или путь")
+        .interact_text()?
+        .trim()
+        .to_string();
+    
+    let mut path = PathBuf::from(&input);
 
-    for _ in 0..total {
-        pb.inc(1);
-        std::thread::sleep(std::time::Duration::from_millis(10)); // Имитация работы
+    if !path.exists() {
+        if let Some(found_path) = find_file_globally(&input) {
+            println!("{}", style(format!("Файл найден: {:?}", found_path)).green());
+            path = found_path;
+        } else {
+            println!("{}", style("Ошибка: Файл не найден.").red());
+            return Ok(());
+        }
     }
-    pb.finish_with_message(format!("{} завершено", message));
+
+    let data = fs::read(&path)?;
+    // Вызываем функции из lib.rs
+    let result = if action == "Encrypt" { 
+        lib::encrypt(&data, key)? 
+    } else { 
+        lib::decrypt(&data, key)? 
+    };
+
+    fs::write(&path, result)?;
+    println!("{}", style("Операция успешно завершена.").green());
+    Ok(())
+}
+
+fn find_file_globally(filename: &str) -> Option<PathBuf> {
+    println!("{}", style("Поиск файла...").yellow());
+    for entry in WalkDir::new("C:\\").into_iter().filter_map(|e| e.ok()) {
+        if entry.file_name() == filename {
+            return Some(entry.path().to_path_buf());
+        }
+    }
+    None
+}
+
+fn uninstall() -> anyhow::Result<()> {
+    let confirm = Confirm::new().with_prompt("Удалить мастер-ключ из системы?").interact()?;
+    if confirm {
+        let entry = keyring::Entry::new("cerberus_app", "master_key")?;
+        // Используем корректный метод для удаления в актуальной версии keyring
+        entry.delete_credential()?; 
+        println!("{}", style("Ключ удален. Файлы расшифровать невозможно.").bold().red());
+        process::exit(0);
+    }
+    Ok(())
 }

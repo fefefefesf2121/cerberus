@@ -1,15 +1,23 @@
-# Создаем папку для программы
-$installDir = "C:\Program Files\Cerberus"
-New-Item -ItemType Directory -Force -Path $installDir
+# install.ps1
+$src = "target\release\cerberus.exe"
+$distDir = "dist"
 
-# Копируем скомпилированный файл
-Copy-Item ".\target\release\cerberus.exe" -Destination "$installDir\cerberus.exe"
+Write-Host "--- Подготовка инсталляции версии 1.1.1 ---" -ForegroundColor Cyan
 
-# Добавляем путь в переменную окружения PATH (чтобы команда cerberus работала везде)
-$oldPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-if (!$oldPath.Contains($installDir)) {
-    $newPath = $oldPath + ";" + $installDir
-    [System.Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+# 1. Проверяем, есть ли скомпилированный файл
+if (!(Test-Path $src)) {
+    Write-Error "Файл $src не найден! Сначала запусти 'cargo build --release'"
+    exit 1
 }
 
-Write-Host "Установка завершена! Перезапусти терминал и введи 'cerberus'" -ForegroundColor Green
+# 2. Создаем папку dist, если её нет
+if (!(Test-Path $distDir)) {
+    New-Item -ItemType Directory -Path $distDir | Out-Null
+    Write-Host "Папка $distDir создана."
+}
+
+# 3. Копируем бинарник
+Copy-Item $src -Destination "$distDir\cerberus.exe" -Force
+Write-Host "Файл cerberus.exe успешно скопирован в $distDir" -ForegroundColor Green
+
+Write-Host "Инсталляция завершена!" -ForegroundColor Yellow

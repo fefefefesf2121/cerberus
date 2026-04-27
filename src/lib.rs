@@ -1,26 +1,24 @@
-use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, consts::U12}, KeyInit};
+use aes_gcm::{Aes256Gcm, Key};
+use aes_gcm::aead::{Aead, KeyInit};
+use anyhow::{anyhow, Result};
 
-pub struct Cerberus {
-    cipher: Aes256Gcm,
+// Фиксированный nonce (в реальных проектах лучше использовать случайный и сохранять его)
+const NONCE_BYTES: &[u8; 12] = b"unique nonce";
+
+pub fn encrypt(data: &[u8], key_bytes: &[u8]) -> Result<Vec<u8>> {
+    let key = Key::<Aes256Gcm>::from_slice(key_bytes);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = aes_gcm::Nonce::from_slice(NONCE_BYTES);
+    
+    cipher.encrypt(nonce, data)
+        .map_err(|e| anyhow!("Ошибка шифрования: {}", e))
 }
 
-impl Cerberus {
-    pub fn new(key_bytes: &[u8]) -> Self {
-        let key = Key::<Aes256Gcm>::from_slice(key_bytes);
-        Self {
-            cipher: Aes256Gcm::new(key),
-        }
-    }
-
-    pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, String> {
-        let nonce = Nonce::<U12>::from_slice(b"unique-nonce");
-        self.cipher.encrypt(nonce, data)
-            .map_err(|e| format!("Encryption failed: {}", e))
-    }
-
-    pub fn decrypt(&self, encrypted_data: &[u8]) -> Result<Vec<u8>, String> {
-        let nonce = Nonce::<U12>::from_slice(b"unique-nonce");
-        self.cipher.decrypt(nonce, encrypted_data)
-            .map_err(|e| format!("Decryption failed: {}", e))
-    }
+pub fn decrypt(data: &[u8], key_bytes: &[u8]) -> Result<Vec<u8>> {
+    let key = Key::<Aes256Gcm>::from_slice(key_bytes);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = aes_gcm::Nonce::from_slice(NONCE_BYTES);
+    
+    cipher.decrypt(nonce, data)
+        .map_err(|e| anyhow!("Ошибка расшифровки (неверный ключ?): {}", e))
 }
