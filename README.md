@@ -1,30 +1,20 @@
-# Cerberus Security Tool
+# Cerberus System
 
-**Cerberus** — это утилита для быстрого шифрования файлов с использованием AES-GCM 256.
+Cerberus is a lightweight, modular file encryption utility written in Rust, designed for secure and private data management.
 
-## 🛡️ Безопасность
-Программа использует **Windows DPAPI**. 
-- Ключи шифрования привязаны к вашей учетной записи Windows.
-- Никто, кроме вас (даже имея доступ к файлам), не сможет расшифровать данные на другом устройстве.
-- Пароли не хранятся в открытом виде.
+## Features
+* **Robust Encryption:** Powered by AES-256-GCM.
+* **Safety First:** Built-in safeguards prevent accidental encryption of system directories.
+* **Key Management:** Automatic `key.bin` generation and persistence.
+* **Maintenance:** Integrated tools for cleaning up temporary files and session data.
+* **Cross-Platform Readiness:** Designed for easy build and deployment.
 
-## 🚀 Как управлять
-Программа работает в интерактивном режиме:
-1. **Запуск**: `cerberus.exe`
-2. **Навигация**: Используйте стрелочки `↑` `↓`.
-3. **Выбор**: Нажмите `Enter`.
-4. **Откат**: Если вы ошиблись, выберите "Откат" — программа вернет предыдущее состояние файла.
+## Getting Started
+### Prerequisites
+- [Rust/Cargo](https://rustup.rs/) installed on your machine.
 
-## ⚙️ Технические детали
-- **Алгоритм**: AES-256-GCM
-- **Хранение ключей**: Зашифрованный локальный контейнер (DPAPI).
-- **Логирование**: Скрытый системный файл `history.json`.
-
----
-*Внимание: При переустановке Windows ключи будут утеряны, так как они привязаны к текущему профилю пользователя!*
-   Windows (PowerShell):
-   $env:CERBERUS_KEY="твой-очень-длинный-секретный-ключ-32-символа"
-./target/release/cerberus.exe encrypt --file secret.txt
-Linux/macOS:
-export CERBERUS_KEY="твой-очень-длинный-секретный-ключ-32-символа"
-./target/release/cerberus decrypt --file secret.txt.enc
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/fefefefesf2121/cerberus.git](https://github.com/fefefefesf2121/cerberus.git)
+   cd cerberus
